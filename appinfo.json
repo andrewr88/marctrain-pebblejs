@@ -3,8 +3,8 @@
   "capabilities": [
     "configurable"
   ],
-  "companyName": "Meiguro",
-  "longName": "Pebble.js",
+  "companyName": "",
+  "longName": "marctrain-pebblejs",
   "resources": {
     "media": [
       {
@@ -31,7 +31,7 @@
     ]
   },
   "sdkVersion": "3",
-  "shortName": "Pebble.js",
+  "shortName": "marctrain-pebblejs",
   "targetPlatforms": [
     "aplite",
     "basalt",

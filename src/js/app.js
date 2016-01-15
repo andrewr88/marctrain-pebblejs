@@ -6,57 +6,89 @@
 
 var UI = require('ui');
 var Vector2 = require('vector2');
+var ajax = require('ajax');
+var moment = require('vendor/moment');
 
-var main = new UI.Card({
-  title: 'Pebble.js',
-  icon: 'images/menu_icon.png',
-  subtitle: 'Hello World!',
-  body: 'Press any button.',
-  subtitleColor: 'indigo', // Named colors
-  bodyColor: '#9a0036' // Hex colors
+var splashScreen = new UI.Window();
+var text = new UI.Text({
+	position: new Vector2(0, 0),
+	size: new Vector2(144, 168),
+	text: "Fetching MARC Status info...",
+	font: 'GOTHIC_28_BOLD',
+	color: 'black',
+	textOverflow: 'wrap',
+	textAlign: 'center',
+	backgroundColor: 'white'
 });
 
-main.show();
+splashScreen.add(text);
+splashScreen.show();
 
-main.on('click', 'up', function(e) {
-  var menu = new UI.Menu({
-    sections: [{
-      items: [{
-        title: 'Pebble.js',
-        icon: 'images/menu_icon.png',
-        subtitle: 'Can do Menus'
-      }, {
-        title: 'Second Item',
-        subtitle: 'Subtitle Text'
-      }]
-    }]
-  });
-  menu.on('select', function(e) {
-    console.log('Selected item #' + e.itemIndex + ' of section #' + e.sectionIndex);
-    console.log('The item is titled "' + e.item.title + '"');
-  });
-  menu.show();
-});
+var morningStop = "Odenton";
+var eveningStop = "Washington Union Station";
 
-main.on('click', 'select', function(e) {
-  var wind = new UI.Window({
-    fullscreen: true,
-  });
-  var textfield = new UI.Text({
-    position: new Vector2(0, 65),
-    size: new Vector2(144, 30),
-    font: 'gothic-24-bold',
-    text: 'Text Anywhere!',
-    textAlign: 'center'
-  });
-  wind.add(textfield);
-  wind.show();
-});
+var getScheduleStatus = function(direction, day, station, callback) {
+	var url = 'http://marc.mrsharpspoon.com/api/status/' + direction + '/' + day + '/' + station;
+	console.log(url);
+	ajax({
+		url: url,
+		type: 'json'
+	},
+	function(data) {
+		callback(null, data);
+	},
+	function(error) {
+		console.log('Prolem: ' + error);
+		callback(true);
+	}
+	);
+};
 
-main.on('click', 'down', function(e) {
-  var card = new UI.Card();
-  card.title('A Card');
-  card.subtitle('Is a Window');
-  card.body('The simplest window type in Pebble.js.');
-  card.show();
-});
+var createTrainStatusMenu = function(direction, day, station, callback) {
+	getScheduleStatus(direction, day, station, function(err, results) {
+		var schedule = results.schedule;
+		var stop, delayText;
+		var trains = [];
+		for (var x = 0; x < schedule.length; x++) {
+			delayText = '';
+			if (schedule[x].delay) {
+				delayText = schedule[x].delay === '' ? ' (On Time)' : ' (' + schedule[x].delay + ' Delay)';
+			}
+			trains.push({
+				title:  moment(schedule[x].time).format('h:mm a') + delayText
+			});
+		}
+		var currentTrainsMenu = new UI.Menu({
+			sections: [
+				{
+					title: direction + ' ' + station + ' Trains',
+					items: trains
+				}
+			]
+		});
+		callback(currentTrainsMenu);
+	});
+};
+
+var curTime = moment();
+if (curTime.hour() < 12) {
+	createTrainStatusMenu('south', curTime.format('dddd'), morningStop, function(southMenu) {
+		southMenu.on('longSelect', function() {
+			createTrainStatusMenu('north', curTime.format('dddd'), eveningStop, function(northMenu) {
+				northMenu.show();
+			});
+		});
+		southMenu.show();
+		splashScreen.hide();
+	});
+} else {
+	createTrainStatusMenu('north', curTime.format('dddd'), eveningStop, function(northMenu) {
+		northMenu.on('longSelect', function() {
+			createTrainStatusMenu('south', curTime.format('dddd'), morningStop, function(southMenu) {
+				southMenu.show();
+			});
+		});
+		northMenu.show();
+		splashScreen.hide();
+	});
+}
